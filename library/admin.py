@@ -10,8 +10,8 @@ admin.site.disable_action("delete_selected")
 
 @admin.register(Books)
 class BooksAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "publication_date")
-    ordering    = ("title", "author")
+    list_display    = ("title", "author", "publication_date")
+    ordering        = ("title", "author")
 
 @admin.register(BorrowBook)
 class BorrowBookAdmin(admin.ModelAdmin):

@@ -9,10 +9,23 @@ from rest_framework.response import Response
 from djangotest.helper import *
 
 class FindBook(generics.ListAPIView):
-    search_fields = ['title','author','publication_date']
-    filter_backends = (filters.SearchFilter,)
-    queryset = Books.objects.all()
-    serializer_class = BookSerializer
+    
+    search_fields       = ['title','author','publication_date']
+    filter_backends     = (filters.SearchFilter,)
+    queryset            = Books.objects.all()
+    serializer_class    = BookSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if queryset:
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({'info': 'Success', 'code':0, 'data': serializer.data })
+        
+        return Response ({'info': 'Books Not Found' , 'code':55, 'data':None})
+        
+
+
 
 class BorrowBook(APIView):
 
@@ -26,10 +39,9 @@ class BorrowBook(APIView):
         title               = request.data.get('title')
         author              = request.data.get('author')
         publication_date    = request.data.get('publication_date')
-
-        id_count = id.split("\n")
-
-        id_tot = len(id_count)
+        id_category         = request.data.get('id_category')
+        id_count            = id.split("\n")
+        id_tot              = len(id_count)
 
         if id_tot > 3:
             output = {'info': 'Maximum of 3 books' , 'code':55, 'data':None}
@@ -48,6 +60,7 @@ class BorrowBook(APIView):
                     dataInsert['publication_date']                  = publication_date
                     dataInsert['status_borrow']                     = '1'
                     dataInsert['id_status_books_id']                = '0'
+                    dataInsert['id_category_id']                    = id_category
 
                     saveData = saveGlobal('borrow_book', dataInsert)
 
@@ -62,44 +75,23 @@ class BorrowBook(APIView):
         
         return Response({'info':'Successfully submitting a book loan, please wait for the next status' , 'code':0, 'data':None})
     
-class ConfirmBook(APIView):
+class ReturnBook(APIView):
+
+    def dictfetchall(self, cursor):
+        columns = [col[0].lower() for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
     
     def post(self, request, format=None):
+        id                  = request.data.get('id')
+        id_count            = id.split("\n")
 
-        id          = request.data.get('id')
-        username    = request.data.get('username')
-        id_count    = id.split("\n")
-        type        = request.data.get('type')
-
-        if type == 'borrow':
-
-            with transaction.atomic():
+        with transaction.atomic():
                 try:
                     for x in id_count:
 
-                        dataupdate                  = {}
-                        dataupdate['status_borrow'] = '2'
-
-                        updateData = updateGlobal('borrow_book', dataupdate, "id_books = '%s' and status_borrow ='0'"%(id))
-
-                        if updateData['code'] != 0:
-                            transaction.set_rollback(True)
-                            return Response(updateData)
-                        
-                except Exception as e:
-                    transaction.set_rollback(True)
-                    return  Response({'info':str(e), 'code':20, 'data':None})
-
-            
-            return Response({'info':'Sukses Melakukan Confirmasi Pengajuan Buku' , 'code':0, 'data':None})
-        
-        if type == 'return':
-            with transaction.atomic():
-                try:
-                    for x in id_count:
-
-                        dataupdate                              = {}
-                        dataupdate['status_return']             = '2'
+                        dataupdate                          = {}
+                        dataupdate['status_return']         = '2'
+                        dataupdate['id_status_books_id']    = '3'
 
                         updateData = updateGlobal('borrow_book', dataupdate, "id_books = '%s' "%(id))
 
@@ -110,7 +102,59 @@ class ConfirmBook(APIView):
                 except Exception as e:
                     transaction.set_rollback(True)
                     return  Response({'info':str(e), 'code':20, 'data':None})
+
         
-            return Response({'info':'Sukses Melakukan Return Buku' , 'code':0, 'data':None})
+        return Response({'info':'Successfully Request Return book.' , 'code':0, 'data':None})
+    
+# class ConfirmBook(APIView):
+    
+#     def post(self, request, format=None):
+
+#         id          = request.data.get('id')
+#         username    = request.data.get('username')
+#         id_count    = id.split("\n")
+#         type        = request.data.get('type')
+
+#         if type == 'borrow':
+
+#             with transaction.atomic():
+#                 try:
+#                     for x in id_count:
+
+#                         dataupdate                  = {}
+#                         dataupdate['status_borrow'] = '2'
+
+#                         updateData = updateGlobal('borrow_book', dataupdate, "id_books = '%s' and status_borrow ='0'"%(id))
+
+#                         if updateData['code'] != 0:
+#                             transaction.set_rollback(True)
+#                             return Response(updateData)
+                        
+#                 except Exception as e:
+#                     transaction.set_rollback(True)
+#                     return  Response({'info':str(e), 'code':20, 'data':None})
+
+            
+#             return Response({'info':'Sukses Melakukan Confirmasi Pengajuan Buku' , 'code':0, 'data':None})
         
-        return Response({'info':'Type Not Matched' , 'code':0, 'data':None})
+#         if type == 'return':
+#             with transaction.atomic():
+#                 try:
+#                     for x in id_count:
+
+#                         dataupdate                              = {}
+#                         dataupdate['status_return']             = '2'
+
+#                         updateData = updateGlobal('borrow_book', dataupdate, "id_books = '%s' "%(id))
+
+#                         if updateData['code'] != 0:
+#                             transaction.set_rollback(True)
+#                             return Response(updateData)
+                        
+#                 except Exception as e:
+#                     transaction.set_rollback(True)
+#                     return  Response({'info':str(e), 'code':20, 'data':None})
+        
+#             return Response({'info':'Sukses Melakukan Return Buku' , 'code':0, 'data':None})
+        
+#         return Response({'info':'Type Not Matched' , 'code':0, 'data':None})
